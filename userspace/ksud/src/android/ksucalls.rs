@@ -61,14 +61,17 @@ pub fn ksuctl<T>(request: u32, arg: *mut T) -> std::io::Result<i32> {
 }
 
 // API implementations
-fn get_info() -> uapi::ksu_get_info_cmd {
+pub fn get_info() -> uapi::ksu_get_info_cmd {
     *INFO_CACHE.get_or_init(|| {
         let mut cmd = uapi::ksu_get_info_cmd {
             version: 0,
             flags: 0,
             features: 0,
+            uapi_version: 0,
         };
-        let _ = ksuctl(uapi::KSU_IOCTL_GET_INFO_RUST, &raw mut cmd);
+        if ksuctl(uapi::KSU_IOCTL_GET_INFO_RUST, &raw mut cmd).is_err() {
+            let _ = ksuctl(uapi::KSU_IOCTL_GET_INFO_LEGACY_RUST, &raw mut cmd);
+        }
         cmd
     })
 }
@@ -79,6 +82,10 @@ pub fn get_version() -> i32 {
 
 pub fn is_late_load() -> bool {
     get_info().flags & uapi::KSU_GET_INFO_FLAG_LATE_LOAD_RUST != 0
+}
+
+pub fn is_uapi_version_mismatch() -> bool {
+    get_info().uapi_version != uapi::KERNEL_SU_UAPI_VERSION
 }
 
 pub fn grant_root() -> std::io::Result<()> {
